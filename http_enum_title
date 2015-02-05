@@ -1,0 +1,52 @@
+require 'rex/proto/http'
+require 'msf/core'
+require 'nokogiri'
+
+class Metasploit3 < Msf::Auxiliary
+	include Msf::Exploit::Remote::HttpClient
+	include Msf::Auxiliary::WmapScanServer
+	include Msf::Auxiliary::Scanner
+
+	def initialize 
+		super(
+			'Name' => 'Title Grabber',
+			'Description' => 'Simply pull titles from web pages'
+		)
+		
+
+	end 
+	
+	def run_host(ip)
+		 begin 
+			connect
+			res = send_request_raw({ 'uri' => '/', 'method' => 'GET'})
+			fp = get_httpinfo(:response => res)
+			print_status("#{ip}:#{rport} #{fp}") if fp
+		rescue ::Timeout::Error, ::Errno::EPIPE
+		ensure
+			disconnect 
+		end 
+
+	end #End run_host
+
+	def get_httpinfo(opts={})
+	       res = opts[:response]	
+			return if not res 
+		title = ''
+	        case res.code
+		when 200,301
+			doc = Nokogiri::HTML(res.body)
+	
+  			 if not doc.css('title').text.nil?
+				 title = "\033[32m[+]" << doc.css('title').text << "\033[0m"
+			 end
+			title += "\33[34m   Server: " + res.headers['Server'] + "\033[0m" 
+			
+		end
+		report_web_site(:host => rhost, :port => rport, :info => title.dup)
+		title
+	   end
+       			
+
+
+end #End Class
